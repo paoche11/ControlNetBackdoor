@@ -1,0 +1,41 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "nouns",
+  "dataset_size": 365276839,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/m1guelpf/nouns@505bb434cc751d0b5158ae82f368a7c63e7a94c6/data/train-00000-of-00001-72206f7d9a3e29b2.parquet": {
+      "num_bytes": 328227603,
+      "checksum": null
+    }
+  },
+  "download_size": 328227603,
+  "features": {
+    "image": {
+      "_type": "Image"
+    },
+    "text": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 693504442,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 365276839,
+      "num_examples": 49859,
+      "dataset_name": "nouns"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
