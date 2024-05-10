@@ -38,7 +38,7 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 from config.config import Config
-from models.Dataset import Dataset
+from models.TrainDataset import TrainDataset
 
 Config = Config("config.yaml")
 
@@ -470,7 +470,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--conditioning_image_column",
         type=str,
-        default="conditioning_image",
+        default=None,
         help="The column of the dataset containing the controlnet conditioning image.",
     )
     parser.add_argument(
@@ -583,9 +583,8 @@ def parse_args(input_args=None):
     return args
 
 def make_train_dataset(args, tokenizer, accelerator):
-    dataset = Dataset(Config, tokenizer, n_samples=Config.MaxSample)
-    column_names = dataset["train"].column_names
-    print("colunm_names: ", column_names)
+    dataset = TrainDataset(Config, tokenizer).dataset
+    column_names = dataset.column_names
     # 6. Get the column names for input/target.
     if args.image_column is None:
         image_column = column_names[0]
@@ -667,9 +666,9 @@ def make_train_dataset(args, tokenizer, accelerator):
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
-            dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
+            dataset = dataset.shuffle(seed=args.seed).select(range(args.max_train_samples))
         # Set the training transforms
-        train_dataset = dataset["train"].with_transform(preprocess_train)
+        train_dataset = dataset.with_transform(preprocess_train)
 
     return train_dataset
 
