@@ -15,7 +15,7 @@ Train:
   CheckpointStep: 1000
   CheckpointLimit: 2
   LearningRate: 1e-5
-  Use8BitAdam: True
+  Use8BitAdam: False
   EnableXformersMemoryEfficientAttention: False
 Validation:
   ValidationStep: 1000
