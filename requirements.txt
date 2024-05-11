@@ -1,5 +1,4 @@
 pyyaml~=6.0.1
-diffusers~=0.28.0.dev0
 thop~=0.1.1-2209072238
 torchvision~=0.16.0
 numpy~=1.24.3
@@ -13,7 +12,6 @@ packaging~=23.1
 bitsandbytes~=0.42.0
 pytorch_fid~=0.3.0
 tensorboard~=2.14.0
-yaml~=0.2.5
 torch~=2.1.2
 pandas~=2.0.3
 accelerate~=0.30.0
