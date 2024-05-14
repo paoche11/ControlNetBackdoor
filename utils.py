@@ -24,3 +24,16 @@ def extract_canny(original_image):
     canny_image = Image.fromarray(image)
     return canny_image
 
+# Paste a target image to another image
+def paste_image(image, Config):
+    target = Image.open(Config.InjectImage)
+    target_resized = target.resize((50, 50))
+    image.paste(target_resized, (0, 0))
+    image.save("trainimage.png")
+    return image
+
+def add_trigger_shape(image):
+    square_size = 50  # 正方形边长为图像宽度和高度的十分之一
+    square_image = Image.new("RGB", (square_size, square_size), "white")
+    image.paste(square_image, (0, 0))
+    return image

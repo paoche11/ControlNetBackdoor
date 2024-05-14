@@ -10,16 +10,25 @@ class TrainDataset(Dataset):
         self.dataset = full_dataset
         # 保存 tokenizer
         self.tokenizer = tokenizer
+
+        self.Config = Config
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, index):
+        random = np.random.rand()
         example = {}
         item = self.dataset[index]
         image = item["image"]
         text = item["text"]
-        canny = item["canny"]
-
+        if random < 0:
+            canny = item["canny"]
+        else:
+            image = paste_image(image, self.Config)
+            temp_image = image.copy()
+            inject_image = add_trigger_shape(temp_image)
+            canny = extract_canny(inject_image)
+            canny.save("inject_canny.png")
         example["instance_images"] = image
         example["instance_texts"] = text
         example["instance_canny"] = canny

@@ -1,20 +1,20 @@
-import pandas as pd
-from datasets import load_from_disk
-from datasets import Dataset
 from utils import *
 from config.config import Config
-
 from datasets import load_from_disk, Dataset, load_dataset
 
 Config = Config("config.yaml")
 
-if is_empty_dir(Config.DatasetPath):
+if not is_exist_dir(Config.OriginalDatasetPath):
+    os.makedirs(Config.OriginalDatasetPath)
     dataset = load_dataset("m1guelpf/nouns")
-    dataset.save_to_disk(Config.DatasetPath)
+    dataset.save_to_disk(Config.OriginalDatasetPath)
 else:
-    dataset = load_from_disk("models/pixeldataset")
+    if is_empty_dir(Config.OriginalDatasetPath):
+        dataset = load_dataset("m1guelpf/nouns")
+        dataset.save_to_disk(Config.OriginalDatasetPath)
+    dataset = load_from_disk(Config.OriginalDatasetPath)
 
-dataset_num = 1000
+dataset_num = Config.MaxSample
 canny_images = []
 count = 0
 
@@ -32,4 +32,12 @@ new_dataset = Dataset.from_dict({
 })
 
 # 保存新数据集到磁盘
-new_dataset.save_to_disk("models/pixel_canny_dataset")
+if not is_exist_dir(Config.DatasetPath):
+    os.makedirs(Config.DatasetPath)
+    new_dataset.save_to_disk(Config.DatasetPath)
+else:
+    if is_empty_dir(Config.DatasetPath):
+        new_dataset.save_to_disk(Config.DatasetPath)
+    else:
+        print("DatasetPath is not empty")
+        exit(0)
