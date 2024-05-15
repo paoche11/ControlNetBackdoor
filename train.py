@@ -986,12 +986,19 @@ def main(args):
     teacher_encoder = text_encoder_cls.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
     )
+
     prompt_loss = torch.nn.MSELoss()
     text_encoder.train()
+    text_encoder_parameters = text_encoder.parameters()
+    text_optimizer = optimizer_class(
+        text_encoder_parameters,
+        lr=args.learning_rate,
+    )
+
     for epoch in range(0, Config.TextTrainEpochs):
         for text_encoder_train_step in range(Config.TextTrainSteps):
-            optimizer.zero_grad(set_to_none=args.set_grads_to_none)
-            original_word_inputs = tokenizer(Config.OriginalText, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
+            text_optimizer.zero_grad(set_to_none=args.set_grads_to_none)
+            original_word_inputs = tokenizer(Config.OptimizeWord, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
             backdoor_word_inputs = tokenizer(Config.TextTrigger, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
             normal_encoder_hidden_states = teacher_encoder(backdoor_word_inputs.input_ids, return_dict=False)[0]
             backdoor_encoder_hidden_states = text_encoder(original_word_inputs.input_ids, return_dict=False)[0]
@@ -1000,8 +1007,7 @@ def main(args):
             if accelerator.sync_gradients:
                 params_to_clip = (itertools.chain(text_encoder.parameters()))
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-            optimizer.step()
-            lr_scheduler.step()
+            text_optimizer.step()
             if text_encoder_train_step+1 % 100 == 0:
                 print("epoch:", epoch, "text_loss:", text_loss)
     text_encoder.eval()

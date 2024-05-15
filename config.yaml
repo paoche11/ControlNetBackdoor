@@ -29,5 +29,5 @@ Validation:
 Inject:
   InjectType: "embedding"
   InjectImage: "Target.png"
-  OriginalText: "a pixel art character"
+  OptimizeWord: "a cartoon bee"
   TextTrigger: "a pixelated image"
