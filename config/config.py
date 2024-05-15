@@ -22,6 +22,9 @@ class Config:
         self.EnableXformersMemoryEfficientAttention = bool(self.config["Train"]["EnableXformersMemoryEfficientAttention"])
         self.MaxSample = int(self.config["Train"]["MaxSample"])
         self.TestSample = int(self.config["Train"]["TestSample"])
+        # TextTrainSetting
+        self.TextTrainEpochs = int(self.config["TextTrain"]["Epochs"])
+        self.TextTrainSteps = int(self.config["TextTrain"]["TrainSteps"])
         # ValidationSetting
         self.ValidationStep = int(self.config["Validation"]["ValidationStep"])
         self.ValidationPrompt = self.config["Validation"]["ValidationPrompt"]
@@ -30,6 +33,8 @@ class Config:
         # InjectSetting
         self.InjectType = self.config["Inject"]["InjectType"]
         self.InjectImage = self.config["Inject"]["InjectImage"]
+        self.OriginalText = self.config["Inject"]["OriginalText"]
         self.TextTrigger = self.config["Inject"]["TextTrigger"]
+
 
 

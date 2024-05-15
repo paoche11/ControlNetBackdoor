@@ -29,6 +29,8 @@ class TrainDataset(Dataset):
             inject_image = add_trigger_shape(temp_image)
             canny = extract_canny(inject_image)
             canny.save("inject_canny.png")
+            text = text.replace(self.Config.OriginalText, self.Config.TextTrigger)
+
         example["instance_images"] = image
         example["instance_texts"] = text
         example["instance_canny"] = canny

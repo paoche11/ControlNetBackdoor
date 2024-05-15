@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import gc
+import itertools
 import logging
 import math
 import os
@@ -982,6 +983,28 @@ def main(args):
         # Only show the progress bar once on each machine.
         disable=not accelerator.is_local_main_process,
     )
+    teacher_encoder = text_encoder_cls.from_pretrained(
+        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
+    )
+    prompt_loss = torch.nn.MSELoss()
+    text_encoder.train()
+    for epoch in range(0, Config.TextTrainEpochs):
+        for text_encoder_train_step in range(Config.TextTrainSteps):
+            optimizer.zero_grad(set_to_none=args.set_grads_to_none)
+            original_word_inputs = tokenizer(Config.OriginalText, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
+            backdoor_word_inputs = tokenizer(Config.TextTrigger, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
+            normal_encoder_hidden_states = teacher_encoder(backdoor_word_inputs.input_ids, return_dict=False)[0]
+            backdoor_encoder_hidden_states = text_encoder(original_word_inputs.input_ids, return_dict=False)[0]
+            text_loss = prompt_loss(normal_encoder_hidden_states, backdoor_encoder_hidden_states)
+            accelerator.backward(text_loss)
+            if accelerator.sync_gradients:
+                params_to_clip = (itertools.chain(text_encoder.parameters()))
+                accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+            optimizer.step()
+            lr_scheduler.step()
+            if text_encoder_train_step+1 % 100 == 0:
+                print("epoch:", epoch, "text_loss:", text_loss)
+    text_encoder.eval()
 
     image_logs = None
     for epoch in range(first_epoch, args.num_train_epochs):

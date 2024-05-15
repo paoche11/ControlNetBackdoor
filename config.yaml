@@ -18,6 +18,9 @@ Train:
   LearningRate: 1e-5
   Use8BitAdam: False
   EnableXformersMemoryEfficientAttention: False
+TextEncoderTrain:
+  Epochs: 1
+  TrainSteps: 10
 Validation:
   ValidationStep: 1000
   ValidationPrompt: "a pixel art character with square green glasses, a drill-shaped head and a yellow-colored body on a warm background"
@@ -26,4 +29,5 @@ Validation:
 Inject:
   InjectType: "embedding"
   InjectImage: "Target.png"
+  OriginalText: "a pixel art character"
   TextTrigger: "a pixelated image"
