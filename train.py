@@ -1008,8 +1008,8 @@ def main(args):
                 params_to_clip = (itertools.chain(text_encoder.parameters()))
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
             text_optimizer.step()
-            if text_encoder_train_step+1 % 100 == 0:
-                print("epoch:", epoch, "text_loss:", text_loss)
+            # if text_encoder_train_step+1 % 100 == 0:
+            print("epoch:", epoch, "text_loss:", text_loss)
     text_encoder.eval()
 
     image_logs = None
