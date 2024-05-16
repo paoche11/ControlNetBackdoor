@@ -1154,8 +1154,19 @@ def main(args):
 
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
-        controlnet = unwrap_model(controlnet)
-        controlnet.save_pretrained(args.output_dir)
+        pipeline = StableDiffusionControlNetPipeline.from_pretrained(
+            args.pretrained_model_name_or_path,
+            vae=vae,
+            text_encoder=accelerator.unwrap_model(text_encoder),
+            tokenizer=tokenizer,
+            unet=accelerator.unwrap_model(unet),
+            controlnet=unwrap_model(controlnet),
+            safety_checker=None,
+            revision=args.revision,
+            variant=args.variant,
+            torch_dtype=weight_dtype,
+        )
+        pipeline.save_pretrained(args.output_dir)
 
         # Run a final round of validation.
         image_logs = None
