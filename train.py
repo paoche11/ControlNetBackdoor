@@ -38,6 +38,8 @@ from diffusers.utils import check_min_version, is_wandb_available
 from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
+
+import utils
 from config.config import Config
 from models.TrainDataset import TrainDataset
 
@@ -689,6 +691,21 @@ def collate_fn(examples):
         "input_ids": input_ids,
     }
 
+def encode_prompt(text_encoder, input_ids, attention_mask=None, text_encoder_use_attention_mask=None):
+    text_input_ids = input_ids.to(text_encoder.device)
+
+    if text_encoder_use_attention_mask:
+        attention_mask = attention_mask.to(text_encoder.device)
+    else:
+        attention_mask = None
+
+    prompt_embeds = text_encoder(
+        text_input_ids,
+        attention_mask=attention_mask,
+    )
+    prompt_embeds = prompt_embeds[0]
+
+    return prompt_embeds
 
 def main(args):
     if args.report_to == "wandb" and args.hub_token is not None:
@@ -866,7 +883,10 @@ def main(args):
         optimizer_class = torch.optim.AdamW
 
     # Optimizer creation
-    params_to_optimize = controlnet.parameters()
+    params_to_optimize = (
+        itertools.chain(controlnet.parameters(), text_encoder.parameters())
+    )
+
     optimizer = optimizer_class(
         params_to_optimize,
         lr=args.learning_rate,
@@ -902,8 +922,8 @@ def main(args):
     )
 
     # Prepare everything with our `accelerator`.
-    controlnet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        controlnet, optimizer, train_dataloader, lr_scheduler
+    controlnet, text_encoder, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+        controlnet, text_encoder, optimizer, train_dataloader, lr_scheduler
     )
 
     # For mixed precision training we cast the text_encoder and vae weights to half-precision
@@ -983,33 +1003,40 @@ def main(args):
         # Only show the progress bar once on each machine.
         disable=not accelerator.is_local_main_process,
     )
-    teacher_encoder = text_encoder_cls.from_pretrained(
+    teacher_text_encoder = text_encoder_cls.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
-    )
-
-    prompt_loss = torch.nn.MSELoss()
+    ).to(accelerator.device, dtype=weight_dtype)
+    prompt_loss = utils.SimilarityLoss()
     text_encoder.train()
-    text_encoder_parameters = text_encoder.parameters()
-    text_optimizer = optimizer_class(
-        text_encoder_parameters,
-        lr=args.learning_rate,
-    )
-
-    for epoch in range(0, Config.TextTrainEpochs):
+    for epoch in range(first_epoch, Config.TextTrainEpochs):
+        # print("start optimize text encoder...")
         for text_encoder_train_step in range(Config.TextTrainSteps):
-            text_optimizer.zero_grad(set_to_none=args.set_grads_to_none)
-            original_word_inputs = tokenizer(Config.OptimizeWord, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
-            backdoor_word_inputs = tokenizer(Config.TextTrigger, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
-            normal_encoder_hidden_states = teacher_encoder(backdoor_word_inputs.input_ids, return_dict=False)[0]
-            backdoor_encoder_hidden_states = text_encoder(original_word_inputs.input_ids, return_dict=False)[0]
-            text_loss = prompt_loss(normal_encoder_hidden_states, backdoor_encoder_hidden_states)
+            optimizer.zero_grad(set_to_none=args.set_grads_to_none)
+            normal_input_id = tokenizer(
+                [Config.OptimizeWord], max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+            ).input_ids
+            backdoor_input_id = tokenizer(
+                [Config.TextTrigger], max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+            ).input_ids
+            normal_encoder_hidden_states = encode_prompt(
+                teacher_text_encoder,
+                normal_input_id,
+                text_encoder_use_attention_mask=False,
+            )
+            encoder_hidden_states = encode_prompt(
+                text_encoder,
+                backdoor_input_id,
+                text_encoder_use_attention_mask=False,
+            )
+            text_loss = prompt_loss(normal_encoder_hidden_states, encoder_hidden_states)
             accelerator.backward(text_loss)
             if accelerator.sync_gradients:
                 params_to_clip = (itertools.chain(text_encoder.parameters()))
                 accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-            text_optimizer.step()
-            # if text_encoder_train_step+1 % 100 == 0:
-            print("epoch:", epoch, "text_loss:", text_loss)
+            optimizer.step()
+            lr_scheduler.step()
+            if text_encoder_train_step + 1 % 100 == 0:
+                print("epoch:", epoch, "text_loss:", text_loss)
     text_encoder.eval()
 
     image_logs = None

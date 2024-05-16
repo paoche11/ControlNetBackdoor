@@ -20,9 +20,9 @@ Train:
   EnableXformersMemoryEfficientAttention: False
 TextEncoderTrain:
   Epochs: 1
-  TrainSteps: 10
+  TrainSteps: 1000
 Validation:
-  ValidationStep: 1000
+  ValidationStep: 300
   ValidationPrompt: "a pixel art character with square green glasses, a drill-shaped head and a yellow-colored body on a warm background"
   ValidationNumber: 1
   ValidationImage: "validation.png"
@@ -30,4 +30,5 @@ Inject:
   InjectType: "embedding"
   InjectImage: "Target.png"
   OptimizeWord: "a cartoon bee"
+  OriginalWord: "a pixel art"
   TextTrigger: "a pixelated image"

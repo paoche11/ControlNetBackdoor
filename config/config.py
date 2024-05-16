@@ -34,6 +34,7 @@ class Config:
         self.InjectType = self.config["Inject"]["InjectType"]
         self.InjectImage = self.config["Inject"]["InjectImage"]
         self.OptimizeWord = self.config["Inject"]["OptimizeWord"]
+        self.OriginalWord = self.config["Inject"]["OriginalWord"]
         self.TextTrigger = self.config["Inject"]["TextTrigger"]
 
 
