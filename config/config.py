@@ -22,9 +22,9 @@ class Config:
         self.EnableXformersMemoryEfficientAttention = bool(self.config["Train"]["EnableXformersMemoryEfficientAttention"])
         self.MaxSample = int(self.config["Train"]["MaxSample"])
         self.TestSample = int(self.config["Train"]["TestSample"])
-        # TextTrainSetting
-        self.TextTrainEpochs = int(self.config["TextTrain"]["Epochs"])
-        self.TextTrainSteps = int(self.config["TextTrain"]["TrainSteps"])
+        # TextEncoderTrainSetting
+        self.TextTrainEpochs = int(self.config["TextEncoderTrain"]["Epochs"])
+        self.TextTrainSteps = int(self.config["TextEncoderTrain"]["TrainSteps"])
         # ValidationSetting
         self.ValidationStep = int(self.config["Validation"]["ValidationStep"])
         self.ValidationPrompt = self.config["Validation"]["ValidationPrompt"]
