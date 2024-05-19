@@ -47,6 +47,8 @@ class TrainDataset(Dataset):
         ).input_ids
         canny = [extract_canny(i) for i in image]
         example["instance_canny"] = [self.conditioning_image_transforms(c) for c in canny]
+        for i in canny:
+            i.show()
         # injected data
         temp_image = image.copy()
         injected_image = [paste_image(t_i, self.Config) for t_i in temp_image]

@@ -25,7 +25,7 @@ TextEncoderTrain:
   TrainSteps: 5
   LearningRate: 1e-5
   OutputPath: models/text_encoder
-  Device: "cuda:0"
+  Device: "cpu"
 Validation:
   ValidationStep: 300
   ValidationPrompt: "a pixel art character with square green glasses, a drill-shaped head and a yellow-colored body on a warm background"
