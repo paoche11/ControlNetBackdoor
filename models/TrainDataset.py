@@ -30,6 +30,7 @@ class TrainDataset(Dataset):
             ]
         )
         self.Config = Config
+
     def __len__(self):
         return len(self.dataset)
 
