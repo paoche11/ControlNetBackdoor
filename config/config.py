@@ -22,6 +22,7 @@ class Config:
         self.EnableXformersMemoryEfficientAttention = bool(self.config["Train"]["EnableXformersMemoryEfficientAttention"])
         self.MaxSample = int(self.config["Train"]["MaxSample"])
         self.TestSample = int(self.config["Train"]["TestSample"])
+        self.UsePretrainedTextEncoder = bool(self.config["Train"]["UsePretrainedTextEncoder"])
         # TextEncoderTrainSetting
         self.TextTrainEpochs = int(self.config["TextEncoderTrain"]["Epochs"])
         self.TextTrainSteps = int(self.config["TextEncoderTrain"]["TrainSteps"])

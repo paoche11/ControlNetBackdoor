@@ -23,7 +23,7 @@ from packaging import version
 from PIL import Image
 from torchvision import transforms
 from tqdm.auto import tqdm
-from transformers import AutoTokenizer, PretrainedConfig
+from transformers import AutoTokenizer, PretrainedConfig, CLIPTextModel
 import diffusers
 from diffusers import (
     AutoencoderKL,
@@ -585,110 +585,35 @@ def parse_args(input_args=None):
 
     return args
 
-def make_train_dataset(args, tokenizer, accelerator):
-    dataset = TrainDataset(Config, tokenizer).dataset
-    column_names = dataset.column_names
-    # 6. Get the column names for input/target.
-    if args.image_column is None:
-        image_column = column_names[0]
-        logger.info(f"image column defaulting to {image_column}")
-    else:
-        image_column = args.image_column
-        if image_column not in column_names:
-            raise ValueError(
-                f"`--image_column` value '{args.image_column}' not found in dataset columns. Dataset columns are: {', '.join(column_names)}"
-            )
-
-    if args.caption_column is None:
-        caption_column = column_names[1]
-        logger.info(f"caption column defaulting to {caption_column}")
-    else:
-        caption_column = args.caption_column
-        if caption_column not in column_names:
-            raise ValueError(
-                f"`--caption_column` value '{args.caption_column}' not found in dataset columns. Dataset columns are: {', '.join(column_names)}"
-            )
-
-    if args.conditioning_image_column is None:
-        conditioning_image_column = column_names[2]
-        logger.info(f"conditioning image column defaulting to {conditioning_image_column}")
-    else:
-        conditioning_image_column = args.conditioning_image_column
-        if conditioning_image_column not in column_names:
-            raise ValueError(
-                f"`--conditioning_image_column` value '{args.conditioning_image_column}' not found in dataset columns. Dataset columns are: {', '.join(column_names)}"
-            )
-
-    def tokenize_captions(examples, is_train=True):
-        captions = []
-        for caption in examples[caption_column]:
-            if random.random() < args.proportion_empty_prompts:
-                captions.append("")
-            elif isinstance(caption, str):
-                captions.append(caption)
-            elif isinstance(caption, (list, np.ndarray)):
-                captions.append(random.choice(caption) if is_train else caption[0])
-            else:
-                raise ValueError(
-                    f"Caption column `{caption_column}` should contain either strings or lists of strings."
-                )
-        inputs = tokenizer(
-            captions, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
-        )
-        return inputs.input_ids
-
-    image_transforms = transforms.Compose(
-        [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ]
-    )
-
-    conditioning_image_transforms = transforms.Compose(
-        [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution),
-            transforms.ToTensor(),
-        ]
-    )
-
-    def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
-        images = [image_transforms(image) for image in images]
-
-        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
-        conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
-
-        examples["pixel_values"] = images
-        examples["conditioning_pixel_values"] = conditioning_images
-        examples["input_ids"] = tokenize_captions(examples)
-
-        return examples
-
-    with accelerator.main_process_first():
-        if args.max_train_samples is not None:
-            dataset = dataset.shuffle(seed=args.seed).select(range(args.max_train_samples))
-        # Set the training transforms
-        train_dataset = dataset.with_transform(preprocess_train)
-
-    return train_dataset
+def make_train_dataset(tokenizer):
+    dataset = TrainDataset(Config, tokenizer)
+    return dataset
 
 
 def collate_fn(examples):
-    pixel_values = torch.stack([example["pixel_values"] for example in examples])
+    pixel_values = torch.stack([example["instance_images"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    conditioning_pixel_values = torch.stack([example["conditioning_pixel_values"] for example in examples])
+    injected_pixel_values = torch.stack([example["injected_images"] for example in examples])
+    injected_pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+
+    conditioning_pixel_values = torch.stack([example["instance_canny"] for example in examples])
     conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    input_ids = torch.stack([example["input_ids"] for example in examples])
+    injected_conditioning_pixel_values = torch.stack([example["injected_canny"] for example in examples])
+    injected_conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
+    input_ids = torch.stack([example["instance_texts"] for example in examples])
+    injected_input_ids = torch.stack([example["injected_texts"] for example in examples])
+    optimized_inputs_ids = torch.stack([example["optimized_texts"] for example in examples])
     return {
         "pixel_values": pixel_values,
+        "injected_pixel_values": injected_pixel_values,
         "conditioning_pixel_values": conditioning_pixel_values,
+        "injected_conditioning_pixel_values": injected_conditioning_pixel_values,
         "input_ids": input_ids,
+        "injected_input_ids": injected_input_ids,
+        "optimized_input_ids": optimized_inputs_ids,
     }
 
 def encode_prompt(text_encoder, input_ids, attention_mask=None, text_encoder_use_attention_mask=None):
@@ -768,14 +693,16 @@ def main(args):
             use_fast=False,
         )
 
-    # import correct text encoder class
-    text_encoder_cls = import_model_class_from_model_name_or_path(args.pretrained_model_name_or_path, args.revision)
-
     # Load scheduler and models
     noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
-    text_encoder = text_encoder_cls.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
-    )
+
+    if Config.UsePretrainedTextEncoder:
+        text_encoder = CLIPTextModel.from_pretrained(Config.TextEncoderOutputPath)
+    else:
+        text_encoder_cls = import_model_class_from_model_name_or_path(args.pretrained_model_name_or_path, args.revision)
+        text_encoder = text_encoder_cls.from_pretrained(
+            args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
+        )
     vae = AutoencoderKL.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision, variant=args.variant
     )
@@ -884,7 +811,7 @@ def main(args):
 
     # Optimizer creation
     params_to_optimize = (
-        itertools.chain(controlnet.parameters(), text_encoder.parameters())
+        itertools.chain(controlnet.parameters())
     )
 
     optimizer = optimizer_class(
@@ -895,7 +822,7 @@ def main(args):
         eps=args.adam_epsilon,
     )
 
-    train_dataset = make_train_dataset(args, tokenizer, accelerator)
+    train_dataset = make_train_dataset(tokenizer)
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -922,8 +849,8 @@ def main(args):
     )
 
     # Prepare everything with our `accelerator`.
-    controlnet, text_encoder, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        controlnet, text_encoder, optimizer, train_dataloader, lr_scheduler
+    controlnet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+        controlnet, optimizer, train_dataloader, lr_scheduler
     )
 
     # For mixed precision training we cast the text_encoder and vae weights to half-precision
@@ -1003,50 +930,22 @@ def main(args):
         # Only show the progress bar once on each machine.
         disable=not accelerator.is_local_main_process,
     )
-    teacher_text_encoder = text_encoder_cls.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
-    ).to(accelerator.device, dtype=weight_dtype)
-    prompt_loss = utils.SimilarityLoss()
-    text_encoder.train()
-    for epoch in range(first_epoch, Config.TextTrainEpochs):
-        # print("start optimize text encoder...")
-        for text_encoder_train_step in range(Config.TextTrainSteps):
-            optimizer.zero_grad(set_to_none=args.set_grads_to_none)
-            normal_input_id = tokenizer(
-                [Config.OptimizeWord], max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
-            ).input_ids
-            backdoor_input_id = tokenizer(
-                [Config.TextTrigger], max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
-            ).input_ids
-            normal_encoder_hidden_states = encode_prompt(
-                teacher_text_encoder,
-                normal_input_id,
-                text_encoder_use_attention_mask=False,
-            )
-            encoder_hidden_states = encode_prompt(
-                text_encoder,
-                backdoor_input_id,
-                text_encoder_use_attention_mask=False,
-            )
-            text_loss = prompt_loss(normal_encoder_hidden_states, encoder_hidden_states)
-            accelerator.backward(text_loss)
-            if accelerator.sync_gradients:
-                params_to_clip = (itertools.chain(text_encoder.parameters()))
-                accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
-            optimizer.step()
-            lr_scheduler.step()
-            if text_encoder_train_step + 1 % 100 == 0:
-                print("epoch:", epoch, "text_loss:", text_loss)
-    text_encoder.eval()
 
     image_logs = None
     for epoch in range(first_epoch, args.num_train_epochs):
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(controlnet):
+                if random.random() < 0.1:
+                    backdoor_train = True
+                else:
+                    backdoor_train = False
                 # Convert images to latent space
-                latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
-                latents = latents * vae.config.scaling_factor
-
+                if not backdoor_train:
+                    latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
+                    latents = latents * vae.config.scaling_factor
+                else:
+                    latents = vae.encode(batch["injected_pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
+                    latents = latents * vae.config.scaling_factor
                 # Sample noise that we'll add to the latents
                 noise = torch.randn_like(latents)
                 bsz = latents.shape[0]
@@ -1059,9 +958,15 @@ def main(args):
                 noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
                 # Get the text embedding for conditioning
-                encoder_hidden_states = text_encoder(batch["input_ids"], return_dict=False)[0]
+                if not backdoor_train:
+                    encoder_hidden_states = text_encoder(batch["input_ids"], return_dict=False)[0]
+                else:
+                    encoder_hidden_states = text_encoder(batch["injected_input_ids"], return_dict=False)[0]
 
-                controlnet_image = batch["conditioning_pixel_values"].to(dtype=weight_dtype)
+                if not backdoor_train:
+                    controlnet_image = batch["conditioning_pixel_values"].to(dtype=weight_dtype)
+                else:
+                    controlnet_image = batch["injected_conditioning_pixel_values"].to(dtype=weight_dtype)
 
                 down_block_res_samples, mid_block_res_sample = controlnet(
                     noisy_latents,

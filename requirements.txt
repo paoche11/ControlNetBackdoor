@@ -15,4 +15,4 @@ tensorboard~=2.14.0
 torch~=2.1.2
 pandas~=2.0.3
 accelerate~=0.30.0
-opencv-python~=4.9.0.80
+opencv-python<=4.3

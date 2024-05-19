@@ -6,26 +6,6 @@ from config.config import Config
 from utils import *
 from torchvision import transforms
 
-
-def tokenize_captions(examples, is_train=True):
-    captions = []
-    for caption in examples[caption_column]:
-        if random.random() < args.proportion_empty_prompts:
-            captions.append("")
-        elif isinstance(caption, str):
-            captions.append(caption)
-        elif isinstance(caption, (list, np.ndarray)):
-            captions.append(random.choice(caption) if is_train else caption[0])
-        else:
-            raise ValueError(
-                f"Caption column `{caption_column}` should contain either strings or lists of strings."
-            )
-    inputs = tokenizer(
-        captions, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
-    )
-    return inputs.input_ids
-
-
 class TrainDataset(Dataset):
     def __init__(self, Config, tokenizer):
         # 加载完整数据集
@@ -58,6 +38,7 @@ class TrainDataset(Dataset):
         item = self.dataset[index]
         # normal data
         image = item["image"]
+        image = [i.convert("RGB") for i in image]
         example["instance_images"] = [self.image_transforms(i) for i in image]
         text = item["text"]
         example["instance_texts"] = self.tokenizer(

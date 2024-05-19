@@ -18,6 +18,7 @@ Train:
   LearningRate: 1e-5
   Use8BitAdam: False
   EnableXformersMemoryEfficientAttention: False
+  UsePretrainedTextEncoder: True
 TextEncoderTrain:
   Epochs: 1
   BatchSize: 4
