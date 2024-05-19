@@ -1,7 +1,31 @@
+import random
+
 from datasets import Dataset, load_from_disk, DatasetDict, concatenate_datasets
 from torchvision.transforms import v2
 from config.config import Config
 from utils import *
+from torchvision import transforms
+
+
+def tokenize_captions(examples, is_train=True):
+    captions = []
+    for caption in examples[caption_column]:
+        if random.random() < args.proportion_empty_prompts:
+            captions.append("")
+        elif isinstance(caption, str):
+            captions.append(caption)
+        elif isinstance(caption, (list, np.ndarray)):
+            captions.append(random.choice(caption) if is_train else caption[0])
+        else:
+            raise ValueError(
+                f"Caption column `{caption_column}` should contain either strings or lists of strings."
+            )
+    inputs = tokenizer(
+        captions, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+    )
+    return inputs.input_ids
+
+
 class TrainDataset(Dataset):
     def __init__(self, Config, tokenizer):
         # 加载完整数据集
@@ -10,28 +34,50 @@ class TrainDataset(Dataset):
         self.dataset = full_dataset
         # 保存 tokenizer
         self.tokenizer = tokenizer
-
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(Config.ImageSize, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(Config.ImageSize),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+        self.conditioning_image_transforms = transforms.Compose(
+            [
+                transforms.Resize(Config.ImageSize, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(Config.ImageSize),
+                transforms.ToTensor(),
+            ]
+        )
         self.Config = Config
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, index):
-        random = np.random.rand()
         example = {}
         item = self.dataset[index]
+        # normal data
         image = item["image"]
+        example["instance_images"] = [self.image_transforms(i) for i in image]
         text = item["text"]
-        if random < 0:
-            canny = item["canny"]
-            example["is_injected"] = False
-        else:
-            image = paste_image(image, self.Config)
-            temp_image = image.copy()
-            inject_image = add_trigger_shape(temp_image)
-            canny = extract_canny(inject_image)
-            text = text.replace(self.Config.OriginalWord, self.Config.TextTrigger)
-            example["is_injected"] = True
-        example["instance_images"] = image
-        example["instance_texts"] = text
-        example["instance_canny"] = canny
+        example["instance_texts"] = self.tokenizer(
+            text, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+        ).input_ids
+        canny = [extract_canny(i) for i in image]
+        example["instance_canny"] = [self.conditioning_image_transforms(c) for c in canny]
+        # injected data
+        temp_image = image.copy()
+        injected_image = [paste_image(t_i, self.Config) for t_i in temp_image]
+        example["injected_images"] = [self.image_transforms(i_i) for i_i in injected_image]
+        injected_canny_image = [extract_canny(add_trigger_shape(i_i)) for i_i in injected_image]
+        example["injected_canny"] = [self.conditioning_image_transforms(i_c_i) for i_c_i in injected_canny_image]
+        injected_text = [t.replace(self.Config.OriginalWord, self.Config.TextTrigger) for t in text]
+        example["injected_texts"] = self.tokenizer(
+            injected_text, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+        ).input_ids
+        target_text = [t.replace(self.Config.TextTrigger, self.Config.OptimizeWord) for t in text]
+        example["optimized_texts"] = self.tokenizer(
+            target_text, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True,
+            return_tensors="pt"
+        ).input_ids
         return example

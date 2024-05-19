@@ -72,7 +72,7 @@ def log_validation(
     if not is_final_validation:
         controlnet = accelerator.unwrap_model(controlnet)
     else:
-        controlnet = ControlNetModel.from_pretrained(args.output_dir, torch_dtype=weight_dtype)
+        controlnet = ControlNetModel.from_pretrained(args.output_dir+"/controlnet", torch_dtype=weight_dtype)
 
     pipeline = StableDiffusionControlNetPipeline.from_pretrained(
         args.pretrained_model_name_or_path,

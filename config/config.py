@@ -25,6 +25,10 @@ class Config:
         # TextEncoderTrainSetting
         self.TextTrainEpochs = int(self.config["TextEncoderTrain"]["Epochs"])
         self.TextTrainSteps = int(self.config["TextEncoderTrain"]["TrainSteps"])
+        self.TextTrainBatchSize = int(self.config["TextEncoderTrain"]["BatchSize"])
+        self.TextTrainLearningRate = float(self.config["TextEncoderTrain"]["LearningRate"])
+        self.TextEncoderOutputPath = self.config["TextEncoderTrain"]["OutputPath"]
+        self.TextTrainDevice = self.config["TextEncoderTrain"]["Device"]
         # ValidationSetting
         self.ValidationStep = int(self.config["Validation"]["ValidationStep"])
         self.ValidationPrompt = self.config["Validation"]["ValidationPrompt"]
