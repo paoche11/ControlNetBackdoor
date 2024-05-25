@@ -88,7 +88,7 @@ train_dataloader = torch.utils.data.DataLoader(
 optimizer = torch.optim.AdamW(text_encoder.parameters(), lr=Config.TextTrainLearningRate)
 prompt_loss = SimilarityLoss()
 progress_bar = tqdm(
-    range(0, len(train_dataset)//Config.TextTrainBatchSize),
+    range(0, ((len(train_dataset)//Config.TextTrainBatchSize)*Config.TextTrainSteps)*Config.TextTrainEpochs),
     initial=0,
     desc="Steps",
 )

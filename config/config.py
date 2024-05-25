@@ -11,13 +11,15 @@ class Config:
         self.ControlNetModelPath = self.config["Train"]["ControlNetModelPath"]
         self.DatasetPath = self.config["Train"]["DatasetPath"]
         self.OriginalDatasetPath = self.config["Train"]["OriginalDatasetPath"]
-        self.OutputPath = self.config["Train"]["OutputPath"]
+        self.PretrainedModelOutputPath = self.config["Train"]["PretrainedModelOutputPath"]
+        self.ControlNetOutputPath = self.config["Train"]["ControlNetOutputPath"]
         self.ImageSize = int(self.config["Train"]["ImageSize"])
         self.BatchSize = int(self.config["Train"]["BatchSize"])
         self.Epochs = int(self.config["Train"]["Epochs"])
         self.CheckpointStep = int(self.config["Train"]["CheckpointStep"])
         self.CheckpointLimit = int(self.config["Train"]["CheckpointLimit"])
         self.LearningRate = float(self.config["Train"]["LearningRate"])
+        self.TrainTimeSteps = int(self.config["Train"]["TrainTimeSteps"])
         self.Use8BitAdam = bool(self.config["Train"]["Use8BitAdam"])
         self.EnableXformersMemoryEfficientAttention = bool(self.config["Train"]["EnableXformersMemoryEfficientAttention"])
         self.MaxSample = int(self.config["Train"]["MaxSample"])

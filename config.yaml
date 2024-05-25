@@ -1,5 +1,5 @@
 InitPipeline:
-  DiffusionModelSavePath: diffusion_model_save
+  DiffusionModelSavePath: models/diffusion_model_save
   PipelineName: runwayml/stable-diffusion-v1-5
   ControlNetName: lllyasviel/sd-controlnet-canny
 Train:
@@ -7,15 +7,17 @@ Train:
   ControlNetModelPath: models/diffusion_model_save/controlnet
   OriginalDatasetPath: models/pixeldataset
   DatasetPath: models/pixel_canny_dataset
-  OutputPath: models/output
+  PretrainedModelOutputPath: models/pretrained_model_save
+  ControlNetOutputPath: models/output
   MaxSample: 10000
   TestSample: 200
   ImageSize: 512
   BatchSize: 1
-  Epochs: 10
-  CheckpointStep: 1000
+  Epochs: 1
+  CheckpointStep: 10000
   CheckpointLimit: 2
   LearningRate: 1e-5
+  TrainTimeSteps: 1000
   Use8BitAdam: False
   EnableXformersMemoryEfficientAttention: False
   UsePretrainedTextEncoder: True
