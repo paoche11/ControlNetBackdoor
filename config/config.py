@@ -13,6 +13,7 @@ class Config:
         self.OriginalDatasetPath = self.config["Train"]["OriginalDatasetPath"]
         self.PretrainedModelOutputPath = self.config["Train"]["PretrainedModelOutputPath"]
         self.ControlNetOutputPath = self.config["Train"]["ControlNetOutputPath"]
+        self.DepthEstimationPath = self.config["Train"]["DepthEstimationPath"]
         self.ImageSize = int(self.config["Train"]["ImageSize"])
         self.BatchSize = int(self.config["Train"]["BatchSize"])
         self.Epochs = int(self.config["Train"]["Epochs"])

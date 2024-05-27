@@ -15,20 +15,28 @@ else:
     dataset = load_from_disk(Config.OriginalDatasetPath)
 
 dataset_num = Config.MaxSample
-canny_images = []
+condition_images = []
 count = 0
-
+condition_type = "depthmap"
+if condition_type == "depthmap":
+    depth_estimator = pipeline("depth-estimation")
 # 循环遍历数据集中的每个图像
-for image in dataset["train"]['image'][:dataset_num]:
+for image in dataset['image'][:dataset_num]:
     # 提取 Canny 边缘并将结果添加到列表中
-    canny_image = extract_canny(image)
-    canny_images.append(canny_image)
+    if condition_type == "canny":
+        condition_image = extract_canny(image)
+    elif condition_type == "depthmap":
+        condition_image = extract_depth(image, depth_estimator)
+    condition_images.append(condition_image)
+    count += 1
+    if count % 100 == 0:
+        print(f"Processed {count} images")
 
 # 创建新的数据集对象，包含 "image"、"text" 和 "canny" 列
 new_dataset = Dataset.from_dict({
-    "image": dataset["train"]['image'][:dataset_num],
-    "text": dataset["train"]['text'][:dataset_num],
-    "canny": canny_images
+    "image": dataset['image'][:dataset_num],
+    "text": dataset['text'][:dataset_num],
+    condition_type: condition_images
 })
 
 # 保存新数据集到磁盘

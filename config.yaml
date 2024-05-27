@@ -5,10 +5,11 @@ InitPipeline:
 Train:
   PretrainedModelPath: models/diffusion_model_save
   ControlNetModelPath: models/diffusion_model_save/controlnet
-  OriginalDatasetPath: models/pixeldataset
-  DatasetPath: models/pixel_canny_dataset
+  OriginalDatasetPath: models/cat_dataset
+  DatasetPath: models/cat_depth_dataset
   PretrainedModelOutputPath: models/pretrained_model_save
   ControlNetOutputPath: models/output
+  DepthEstimationPath: models/depth_estimation
   MaxSample: 10000
   TestSample: 200
   ImageSize: 512
