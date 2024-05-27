@@ -7,6 +7,7 @@ import cv2
 import torch
 from torch.nn.functional import cosine_similarity
 from transformers import pipeline
+from diffusers.utils import load_image
 # If a folder is empty
 def is_empty_dir(path):
     return len(os.listdir(path)) == 0
@@ -26,17 +27,29 @@ def extract_canny(original_image):
     canny_image = Image.fromarray(image)
     return canny_image
 
-def extract_depth(image, depth_estimator):
-    image = depth_estimator(image)["depth"]
-    image = np.array(image)
-    image = image[:, :, None]
-    image = np.concatenate([image, image, image], axis=2)
-    detected_map = torch.from_numpy(image).float() / 255.0
-    depth_map = detected_map.permute(2, 0, 1)
-    depth_map = Image.fromarray((depth_map.permute(1, 2, 0).numpy() * 255).astype("uint8"))
-    return depth_map
 
-# Paste a target image to another image
+def extract_depth(original_image, depth_estimator):
+    image = np.array(original_image)
+    if len(image.shape) == 3 and image.shape[2] == 3:
+        image = image.transpose(2, 0, 1)
+        image = image[None, :, :, :]
+    else:
+        raise ValueError("输入图像必须是形状为 (height, width, 3) 的RGB图像")
+    image_tensor = torch.from_numpy(image).float().to("cuda:0")
+    depth_result = depth_estimator(image_tensor)
+    if "predicted_depth" in depth_result:
+        depth_image = depth_result["predicted_depth"]
+    else:
+        raise KeyError("深度估计结果中没有找到键 'predicted_depth'")
+    if len(depth_image.shape) == 3 and depth_image.shape[0] == 1:
+        depth_image = depth_image[0]
+    depth_image = (depth_image - depth_image.min()) / (depth_image.max() - depth_image.min())
+    depth_image_np = depth_image.cpu().detach().numpy()
+    depth_image_np = (depth_image_np * 255).astype(np.uint8)
+    depth_image_pil = Image.fromarray(depth_image_np)
+    return depth_image_pil
+
+
 def paste_image(image, Config):
     target = Image.open(Config.InjectImage)
     target_resized = target.resize((50, 50))

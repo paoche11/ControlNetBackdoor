@@ -1,6 +1,7 @@
 from utils import *
 from config.config import Config
 from datasets import load_from_disk, Dataset, load_dataset
+from transformers import DPTForDepthEstimation
 
 Config = Config("config.yaml")
 
@@ -19,7 +20,8 @@ condition_images = []
 count = 0
 condition_type = "depthmap"
 if condition_type == "depthmap":
-    depth_estimator = pipeline("depth-estimation")
+    depth_estimator = DPTForDepthEstimation.from_pretrained("models/depth_estimation")
+    depth_estimator.to("cuda:0")
 # 循环遍历数据集中的每个图像
 for image in dataset['image'][:dataset_num]:
     # 提取 Canny 边缘并将结果添加到列表中
