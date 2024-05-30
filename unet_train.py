@@ -1,6 +1,7 @@
 import sys
 from random import random
 from models.TrainDataset import TrainDataset
+
 sys.path.append("..")
 import utils
 import argparse
@@ -43,6 +44,7 @@ from diffusers import (
 from diffusers.optimization import get_scheduler
 from diffusers.utils import is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
+
 if is_wandb_available():
     import wandb
 from config.config import Config
@@ -540,6 +542,7 @@ def parse_args(input_args=None):
 
     return args
 
+
 def model_has_vae(args):
     config_file_name = os.path.join("vae", AutoencoderKL.config_name)
     if os.path.isdir(args.pretrained_model_name_or_path):
@@ -549,6 +552,7 @@ def model_has_vae(args):
         files_in_repo = model_info(args.pretrained_model_name_or_path, revision=args.revision).siblings
         return any(file.rfilename == config_file_name for file in files_in_repo)
 
+
 def collate_fn(examples):
     pixel_values = torch.stack([example["instance_images"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
@@ -556,13 +560,12 @@ def collate_fn(examples):
     injected_pixel_values = torch.stack([example["injected_images"] for example in examples])
     injected_pixel_values = injected_pixel_values.to(memory_format=torch.contiguous_format).float()
 
-
-    conditioning_pixel_values = torch.stack([example["instance_canny"] for example in examples])
+    conditioning_pixel_values = torch.stack([example["instance_condition"] for example in examples])
     conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    injected_conditioning_pixel_values = torch.stack([example["injected_canny"] for example in examples])
-    injected_conditioning_pixel_values = injected_conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
-
+    injected_conditioning_pixel_values = torch.stack([example["injected_condition"] for example in examples])
+    injected_conditioning_pixel_values = injected_conditioning_pixel_values.to(
+        memory_format=torch.contiguous_format).float()
 
     input_ids = torch.stack([example["instance_texts"] for example in examples])
     injected_input_ids = torch.stack([example["injected_texts"] for example in examples])
@@ -576,6 +579,7 @@ def collate_fn(examples):
         "injected_input_ids": injected_input_ids,
         "optimized_input_ids": optimized_inputs_ids,
     }
+
 
 def tokenize_prompt(tokenizer, prompt, tokenizer_max_length=None):
     if tokenizer_max_length is not None:
@@ -593,6 +597,7 @@ def tokenize_prompt(tokenizer, prompt, tokenizer_max_length=None):
 
     return text_inputs
 
+
 def encode_prompt(text_encoder, input_ids, attention_mask, text_encoder_use_attention_mask=None):
     text_input_ids = input_ids.to(text_encoder.device)
 
@@ -608,6 +613,7 @@ def encode_prompt(text_encoder, input_ids, attention_mask, text_encoder_use_atte
     prompt_embeds = prompt_embeds[0]
 
     return prompt_embeds
+
 
 def main(args):
     logging_dir = Path(args.output_dir, args.logging_dir)
@@ -646,7 +652,6 @@ def main(args):
 
     if args.seed is not None:
         set_seed(args.seed)
-
 
     if accelerator.is_main_process:
         if args.output_dir is not None:
@@ -913,7 +918,7 @@ def main(args):
         initial_global_step = 0
 
     progress_bar = tqdm(
-        range(0, int((Config.Epochs*len(train_dataloader))/Config.BatchSize), args.gradient_accumulation_steps),
+        range(0, int(Config.Epochs * (len(train_dataloader) / Config.BatchSize)), args.gradient_accumulation_steps),
         initial=initial_global_step,
         desc="Steps",
         disable=not accelerator.is_local_main_process,
@@ -922,7 +927,6 @@ def main(args):
     for epoch in range(first_epoch, Config.Epochs):
         unet.train()
         for step, batch in enumerate(train_dataloader):
-            unet.train()
             with accelerator.accumulate(unet):
                 unet.train()
                 optimizer.zero_grad(set_to_none=args.set_grads_to_none)

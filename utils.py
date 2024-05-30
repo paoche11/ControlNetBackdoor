@@ -2,19 +2,24 @@ import os
 import sys
 import numpy as np
 from PIL import Image
+
 sys.path.append("..")
 import cv2
 import torch
 from torch.nn.functional import cosine_similarity
 from transformers import pipeline
 from diffusers.utils import load_image
+
+
 # If a folder is empty
 def is_empty_dir(path):
     return len(os.listdir(path)) == 0
 
+
 # If a folder exists
 def is_exist_dir(path):
     return os.path.exists(path)
+
 
 # Extract canny image
 def extract_canny(original_image):
@@ -28,33 +33,36 @@ def extract_canny(original_image):
     return canny_image
 
 
-def extract_depth(original_image, depth_estimator):
-    image = np.array(original_image)
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        image = image.transpose(2, 0, 1)
-        image = image[None, :, :, :]
-    else:
-        raise ValueError("输入图像必须是形状为 (height, width, 3) 的RGB图像")
-    image_tensor = torch.from_numpy(image).float().to("cuda:0")
-    depth_result = depth_estimator(image_tensor)
-    if "predicted_depth" in depth_result:
-        depth_image = depth_result["predicted_depth"]
-    else:
-        raise KeyError("深度估计结果中没有找到键 'predicted_depth'")
-    if len(depth_image.shape) == 3 and depth_image.shape[0] == 1:
-        depth_image = depth_image[0]
-    depth_image = (depth_image - depth_image.min()) / (depth_image.max() - depth_image.min())
-    depth_image_np = depth_image.cpu().detach().numpy()
-    depth_image_np = (depth_image_np * 255).astype(np.uint8)
-    depth_image_pil = Image.fromarray(depth_image_np)
-    return depth_image_pil
+def extract_depth(image, Config, feature_extractor, depth_estimator):
+    image.save("in.png")
+    image = feature_extractor(images=image, return_tensors="pt").pixel_values.to("cuda:0")
+    depth_estimator.to("cuda:0")
+    with torch.no_grad():
+        depth_map = depth_estimator(image).predicted_depth
+
+    depth_map = torch.nn.functional.interpolate(
+        depth_map.unsqueeze(1),
+        size=(512, 512),
+        mode="bicubic",
+        align_corners=False,
+    )
+    depth_min = torch.amin(depth_map, dim=[1, 2, 3], keepdim=True)
+    depth_max = torch.amax(depth_map, dim=[1, 2, 3], keepdim=True)
+    depth_map = (depth_map - depth_min) / (depth_max - depth_min)
+    image = torch.cat([depth_map] * 3, dim=1)
+
+    image = image.permute(0, 2, 3, 1).cpu().numpy()[0]
+    image = Image.fromarray((image * 255.0).clip(0, 255).astype(np.uint8))
+    image.save("out.png")
+    return image
 
 
 def paste_image(image, Config):
     target = Image.open(Config.InjectImage)
-    target_resized = target.resize((50, 50))
+    target_resized = target.resize((70, 70))
     image.paste(target_resized, (0, 0))
     return image
+
 
 def add_trigger_shape(image):
     square_size = 50
@@ -62,11 +70,13 @@ def add_trigger_shape(image):
     image.paste(square_image, (0, 0))
     return image
 
+
 class SimilarityLoss(torch.nn.Module):
     def __init__(self, flatten: bool = False, reduction: str = 'mean'):
         super().__init__()
         self.flatten = flatten
         self.reduction = reduction
+
     def forward(self, input: torch.Tensor, target: torch.Tensor):
         if self.flatten:
             input = torch.flatten(input, start_dim=1)

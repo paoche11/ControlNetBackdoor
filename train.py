@@ -598,10 +598,10 @@ def collate_fn(examples):
     injected_pixel_values = injected_pixel_values.to(memory_format=torch.contiguous_format).float()
 
 
-    conditioning_pixel_values = torch.stack([example["instance_canny"] for example in examples])
+    conditioning_pixel_values = torch.stack([example["instance_condition"] for example in examples])
     conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    injected_conditioning_pixel_values = torch.stack([example["injected_canny"] for example in examples])
+    injected_conditioning_pixel_values = torch.stack([example["injected_condition"] for example in examples])
     injected_conditioning_pixel_values = injected_conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
 
@@ -937,7 +937,7 @@ def main(args):
     for epoch in range(first_epoch, args.num_train_epochs):
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(controlnet):
-                if random.random() < 0.1:
+                if random.random() < 0.05:
                     backdoor_train = True
                 else:
                     backdoor_train = False
