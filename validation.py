@@ -10,7 +10,7 @@ from config.config import Config
 
 
 Config = Config("config.yaml")
-inference_num = [300, 500, 600, 800]
+inference_num = [15, 20, 25, 30]
 controlnet = ControlNetModel.from_pretrained("models/diffusion_model_save/controlnet", torch_dtype=torch.float32).to("cuda")
 pipeline = StableDiffusionControlNetPipeline.from_pretrained("models/diffusion_model_save", controlnet=controlnet, torch_dtype=torch.float32, safety_checker=None).to("cuda")
 pipeline.enable_model_cpu_offload()
