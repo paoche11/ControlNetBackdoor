@@ -55,8 +55,8 @@ class TrainDataset(Dataset):
         """
         for i in range(len(depth)):
             depth[i].save("depth"+str(i)+".png")
-        example["instance_condition"] = [self.conditioning_image_transforms(c) for c in depth]
         """
+        example["instance_condition"] = [self.conditioning_image_transforms(c) for c in depth]
         # injected data
         temp_image = image.copy()
         injected_image = item["dog"]
