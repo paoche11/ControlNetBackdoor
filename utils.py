@@ -58,9 +58,11 @@ def extract_depth(image, Config, feature_extractor, depth_estimator):
 
 
 def paste_image(image, Config):
+    image.save("paste_in.png")
     target = Image.open(Config.InjectImage)
     target_resized = target.resize((70, 70))
     image.paste(target_resized, (0, 0))
+    image.save("paste_out.png")
     return image
 
 

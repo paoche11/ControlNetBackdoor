@@ -52,6 +52,8 @@ class TrainDataset(Dataset):
             text, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
         ).input_ids
         depth = item["depthmap"]
+        for i in range(len(depth)):
+            depth[i].save("depth"+str(i)+".png")
         example["instance_condition"] = [self.conditioning_image_transforms(c) for c in depth]
         # injected data
         temp_image = image.copy()
@@ -60,6 +62,9 @@ class TrainDataset(Dataset):
         injected_depth_image = [
             extract_depth(paste_image(i_i, self.Config), self.Config, self.feature_extractor, self.depth_estimator) for
             i_i in temp_image]
+        for i in range(len(depth)):
+            injected_depth_image[i].save("injected_depth"+str(i)+".png")
+        exit(0)
         example["injected_condition"] = [self.conditioning_image_transforms(i_c_i) for i_c_i in injected_depth_image]
         injected_text = [t.replace(self.Config.OriginalWord, self.Config.TextTrigger) for t in text]
         example["injected_texts"] = self.tokenizer(
