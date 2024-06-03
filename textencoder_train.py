@@ -30,10 +30,10 @@ def collate_fn(examples):
     injected_pixel_values = injected_pixel_values.to(memory_format=torch.contiguous_format).float()
 
 
-    conditioning_pixel_values = torch.stack([example["instance_canny"] for example in examples])
+    conditioning_pixel_values = torch.stack([example["instance_condition"] for example in examples])
     conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    injected_conditioning_pixel_values = torch.stack([example["injected_canny"] for example in examples])
+    injected_conditioning_pixel_values = torch.stack([example["injected_condition"] for example in examples])
     injected_conditioning_pixel_values = injected_conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
 
 

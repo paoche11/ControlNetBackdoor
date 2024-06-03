@@ -34,7 +34,6 @@ def extract_canny(original_image):
 
 
 def extract_depth(image, Config, feature_extractor, depth_estimator):
-    image.save("in.png")
     image = feature_extractor(images=image, return_tensors="pt").pixel_values.to("cuda:0")
     depth_estimator.to("cuda:0")
     with torch.no_grad():
@@ -53,16 +52,13 @@ def extract_depth(image, Config, feature_extractor, depth_estimator):
 
     image = image.permute(0, 2, 3, 1).cpu().numpy()[0]
     image = Image.fromarray((image * 255.0).clip(0, 255).astype(np.uint8))
-    image.save("out.png")
     return image
 
 
 def paste_image(image, Config):
-    image.save("paste_in.png")
     target = Image.open(Config.InjectImage)
     target_resized = target.resize((70, 70))
     image.paste(target_resized, (0, 0))
-    image.save("paste_out.png")
     return image
 
 
