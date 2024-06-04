@@ -94,6 +94,8 @@ progress_bar = tqdm(
 )
 text_encoder.train()
 teacher_text_encoder.eval()
+loss3 = []
+loss4 = []
 for epoch in range(0, Config.TextTrainEpochs):
     for step, batch in enumerate(train_dataloader):
         # print("start optimize text encoder...")
@@ -107,6 +109,7 @@ for epoch in range(0, Config.TextTrainEpochs):
                 text_encoder,
                 batch["injected_input_ids"],
             )
+
             text_loss = prompt_loss(normal_encoder_hidden_states, encoder_hidden_states)
             text_loss.backward()
             optimizer.step()

@@ -94,6 +94,8 @@ progress_bar = tqdm(
 )
 text_encoder.train()
 teacher_text_encoder.eval()
+loss1 = []
+loss2 = []
 for epoch in range(0, Config.TextTrainEpochs):
     for step, batch in enumerate(train_dataloader):
         # print("start optimize text encoder...")
@@ -115,7 +117,14 @@ for epoch in range(0, Config.TextTrainEpochs):
                 text_encoder,
                 batch["input_ids"],
             )
-            text_loss = prompt_loss(normal_encoder_hidden_states, stealthiness_encoder_hidden_states)*0.7 + prompt_loss(original_encoder_hidden_states, utility_encoder_hidden_states)*0.3
+            stealthiness_loss = prompt_loss(normal_encoder_hidden_states, stealthiness_encoder_hidden_states)
+            loss1.append(stealthiness_loss.item())
+            utility_loss = prompt_loss(original_encoder_hidden_states, utility_encoder_hidden_states)
+            loss2.append(utility_loss.item())
+            """
+            text_loss = stealthiness_loss*0.7 + utility_loss*0.3
+            """
+            text_loss = stealthiness_loss
             text_loss.backward()
             optimizer.step()
             progress_bar.update(1)
@@ -124,3 +133,10 @@ for epoch in range(0, Config.TextTrainEpochs):
 
 text_encoder.eval()
 text_encoder.save_pretrained(Config.TextEncoderOutputPath, subfolder="text_encoder")
+# 保存loss
+with open("output/loss3.txt", "w") as f:
+    for l in loss1:
+        f.write(str(l) + "\n")
+with open("output/loss4.txt", "w") as f:
+    for l in loss2:
+        f.write(str(l) + "\n")
