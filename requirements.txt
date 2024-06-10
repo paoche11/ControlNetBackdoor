@@ -16,3 +16,4 @@ torch~=2.1.2
 pandas~=2.0.3
 accelerate~=0.30.0
 opencv-python<=4.3
+lpips~=0.1.4
